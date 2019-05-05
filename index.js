@@ -46,10 +46,13 @@ attempted access by any other user will result in a "Not Authorized" response.
 */
 
 var authorize = (req, res, next) => {
+
+  console.log(req.query.username);
   if (req.session.identity) {
     if (
       req.session.identity === req.params.username ||
-      req.session.identity === req.body.nurse_name
+      req.session.identity === req.body.nurse_name ||
+      req.session.identity === req.query.username
     )
       next();
     else res.status(401).end("Not Authorized.");
@@ -62,10 +65,29 @@ A user can only access their own tasks. this is ensured by the session id that's
 */
 
 app.get("/nurse/getList/:username/:dept", authorize, function(req, res) {
+
+  console.log(req.query);
   let query =
     "SELECT * FROM tasksassigned WHERE nurse_name = ? AND dept_name= ?";
 
   mysqlConnection.query(query, [req.params.username, req.params.dept], function(
+    error,
+    results,
+    fields
+  ) {
+    if (error) throw err;
+    else res.send(results);
+  });
+});
+
+app.get('/nurse/getList', authorize, function(req, res) {
+
+  console.log(req.query.username);
+  console.log(req.query.dept);
+  let query =
+    "SELECT * FROM tasksassigned WHERE nurse_name = ? AND dept_name= ?";
+
+  mysqlConnection.query(query, [req.query.username, req.query.dept], function(
     error,
     results,
     fields
