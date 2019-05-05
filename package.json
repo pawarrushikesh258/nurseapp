@@ -1,0 +1,22 @@
+{
+  "name": "nursingapp",
+  "version": "1.0.0",
+  "description": "App for nurses to log hours",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Rushikesh Pawar",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "express-session": "^1.16.1",
+    "http": "0.0.0",
+    "mongoose": "^5.5.5",
+    "mysql": "^2.17.1",
+    "nodemon": "^1.19.0",
+    "path": "^0.12.7"
+  }
+}
