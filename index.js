@@ -3,7 +3,11 @@ const express = require("express"),
   app = express(),
   port = 3000;
 
+
+var path = require('path');
+//__dirname = __dirname+'/public';
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static( path.join(__dirname, 'public')));
 
 var mysql = require("mysql");
 
@@ -36,7 +40,7 @@ mysqlConnection.connect(function(err) {
     return;
   }
 
-  console.log("connected as id " + mysqlConnection.threadId);
+  //console.log("connected as id " + mysqlConnection.threadId);
 });
 
 /*
@@ -59,10 +63,18 @@ var authorize = (req, res, next) => {
   } else res.status(401).end("Not Authorized.");
 };
 
-/*
+/**
+ * Tet API
+ */
+
+ app.get('/', function(req,res){
+   res.sendFile(__dirname+"/public/login.html");
+ });
+ /*
 API to fetch the list of all the assigned tasks to the given user.
 A user can only access their own tasks. this is ensured by the session id that's unique to the user
 */
+
 
 app.get("/nurse/getList/:username/:dept", authorize, function(req, res) {
 
@@ -192,7 +204,7 @@ app.post("/nurse/addItem", authorize, (req, res) => {
  */
 
 
-app.post("/nurse/updateItem",authorize, (req,res)=>{
+app.put("/nurse/updateItem",authorize, (req,res)=>{
     console.log('Inside Update Items');
     let query = "UPDATE tasksassigned SET status= ? WHERE taskname= ? AND nurse_name= ?";
     let taskname = req.body.task_name;
@@ -224,5 +236,173 @@ app.post("/nurse/updateItem",authorize, (req,res)=>{
 
     }
 });
+
+/**
+ * Analytics API
+ * For getting different analytics based on work log
+ */
+
+
+ /**
+  * Facilities Analytics
+  */
+
+app.get("/analytics/facility/all",function(req,res){
+  let query = 'select distinct facility_name,count(nurse_name) as tasks_logged from worklog group by facility_name order by tasks_logged DESC';
+  mysqlConnection.query(query,function(err,results,fields){
+    if(!err)
+    { 
+      res.send(results);
+    }
+    else{
+      res.status(500).send("Bad request");
+    }
+  })});
+
+  app.get(["/analytics/facility/:facility_name","/analytics/facility/:facility_name/:dept_name","/analytics/facility/:facility_name/:dept_name/:nurse_name"],function(req,res){
+    let facility_name=req.params.facility_name;
+    let dept_name=req.params.dept_name;
+    let nurse_name=req.params.nurse_name;
+    let query = 'select distinct count(id) as tasks_logged, facility_name from worklog where facility_name= ?';
+    let query2= 'select distinct count(id) as tasks_logged_by_department,facility_name,dept_name from worklog where facility_name = ? AND dept_name = ?';
+    let query3= 'select distinct count(id) as tasks_logged_by_facility_department_nurse, facility_name, nurse_name from worklog where facility_name= ? AND dept_name= ? AND nurse_name=?';
+    let query4= 'select distinct dept_name, count(dept_name) as department_count from worklog';
+
+    if(!dept_name&&!nurse_name)
+    {mysqlConnection.query(query,facility_name,function(err,results,fields){
+      if(!err)
+      { 
+        res.send(results);
+      }
+      else{
+        res.status(500).send("Bad request");
+      }
+    })}
+  
+    else if(!nurse_name)
+    {
+      {mysqlConnection.query(query2,[facility_name,dept_name],function(err,results,fields){
+        if(!err)
+        { 
+          res.send(results);
+        }
+        else{
+          res.status(500).send("Bad request");
+        }
+      })};
+
+    }
+
+    else{
+      {mysqlConnection.query(query3,[facility_name,dept_name,nurse_name],function(err,results,fields){
+        if(!err)
+        { 
+          res.send(results);
+        }
+        else{
+          res.status(500).send("Bad request");
+        }
+      })};
+
+    }
+  
+  }
+    );
+
+    /**
+     * Department Analytics
+     */
+
+app.get(["/analytics/getalldept","/analytics/getalldept/:facility_name"],function(req,res){
+
+  let query='select distinct facility_name,dept_name from worklog';
+  let query2='select distinct facility_name,dept_name from worklog where facility_name=?';
+  if(!req.params.facility_name){
+    
+    mysqlConnection.query(query,function(err,results,fields){
+    if(!err)
+    {
+      res.status(200).send(results);
+    }
+    else
+    {
+      res.status(500).send("Bad request");
+    }
+
+  });}
+
+  else{
+
+    mysqlConnection.query(query2,[req.params.facility_name],function(err,results,fields){
+      if(!err)
+      {
+        res.status(200).send(results);
+      }
+      else{
+        res.status(500).send("bad request");
+      }
+    });
+
+  }
+
+
+
+
+});
+
+/**
+ * Tasks Analytics
+ */
+
+app.get(["/analytics/alltasks","/analytics/alltasks/:facility_name/:nurse_name","/analytics/alltasks/:facility_name/:dept_name"],function(req,res){
+
+  let query='select distinct(task_name), count(*) as over_the_year from worklog group by task_name order by over_the_year desc';
+  let query2='select distinct(task_name), count(*) as over_the_year,facility_name,dept_name from worklog where facility_name=? AND dept_name=? group by task_name order by over_the_year desc';
+  let query3='select distinct(task_name), count(*) as over_the_year,facility_name,nurse_name from worklog where facility_name=? AND nurse_name=? group by task_name order by over_the_year desc';
+  if(!req.params.facility_name&&!req.params.dept_name&&!req.params.nurse_name)
+  {
+    mysqlConnection.query(query,function(err,results,fields){
+    if(!err)
+    {
+      res.status(200).send(results);
+    }
+    else{
+      res.status(500).send("Bad requests");
+    }
+  });
+} else if(req.params.facility_name&&req.params.dept_name&&!req.params.nurse_name){
+  mysqlConnection.query(query2,[req.params.facility_name,req.params.dept_name],function(err,results,fields){
+    if(!err)
+    {
+      res.status(200).send(results);
+    }
+    else{
+      res.status(500).send("Bad requests");
+    }
+  });
+}
+else{
+  mysqlConnection.query(query3,[req.params.facility_name,req.params.nurse_name],function(err,results,fields){
+    if(!err)
+    {
+      res.status(200).send(results);
+    }
+    else{
+      res.status(500).send("Bad requests");
+    }
+  });
+
+}
+
+});
+
+
+
+
+
+  app.get('*', function(req, res){
+    res.status(404).send('404 Not found, enter correct url');
+  });
+  
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
